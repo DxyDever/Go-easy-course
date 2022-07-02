@@ -1,0 +1,87 @@
+
+3 定义消息类型
+
+接下来，我们创建一个非常简单的示例，student.proto
+
+syntax = "proto3";
+package main;
+
+// this is a comment
+message Student {
+  string name = 1;
+  bool male = 2;
+  repeated int32 scores = 3;
+}
+在当前目录下执行：
+
+$ protoc --go_out=. *.proto
+$ ls
+student.pb.go  student.proto
+
+即是，将该目录下的所有的 .proto 文件转换为 Go 代码，我们可以看到该目录下多出了一个 Go 文件 student.pb.go。这个文件内部定义了一个结构体 Student，以及相关的方法：
+type Student struct {
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Male bool `protobuf:"varint,2,opt,name=male,proto3" json:"male,omitempty"`
+	Scores []int32 `protobuf:"varint,3,rep,packed,name=scores,proto3" json:"scores,omitempty"`
+	...
+}
+
+
+逐行解读student.proto
+
+protobuf 有2个版本，默认版本是 proto2，如果需要 proto3，则需要在非空非注释第一行使用 syntax = "proto3" 标明版本。
+package，即包名声明符是可选的，用来防止不同的消息类型有命名冲突。
+消息类型 使用 message 关键字定义，Student 是类型名，name, male, scores 是该类型的 3 个字段，类型分别为 string, bool 和 []int32。字段可以是标量类型，也可以是合成类型。
+每个字段的修饰符默认是 singular，一般省略不写，repeated 表示字段可重复，即用来表示 Go 语言中的数组类型。
+每个字符 =后面的数字称为标识符，每个字段都需要提供一个唯一的标识符。标识符用来在消息的二进制格式中识别各个字段，一旦使用就不能够再改变，标识符的取值范围为 [1, 2^29 - 1] 。
+.proto 文件可以写注释，单行注释 //，多行注释 /* ... */
+一个 .proto 文件中可以写多个消息类型，即对应多个结构体(struct)。
+接下来，就可以在项目代码中直接使用了，以下是一个非常简单的例子，即证明被序列化的和反序列化后的实例，包含相同的数据。
+
+package main
+
+import (
+	"log"
+
+	"github.com/golang/protobuf/proto"
+)
+
+func main() {
+	test := &Student{
+		Name: "geektutu",
+		Male:  true,
+		Scores: []int32{98, 85, 88},
+	}
+	data, err := proto.Marshal(test)
+	if err != nil {
+		log.Fatal("marshaling error: ", err)
+	}
+	newTest := &Student{}
+	err = proto.Unmarshal(data, newTest)
+	if err != nil {
+		log.Fatal("unmarshaling error: ", err)
+	}
+	// Now test and newTest contain the same data.
+	if test.GetName() != newTest.GetName() {
+		log.Fatalf("data mismatch %q != %q", test.GetName(), newTest.GetName())
+	}
+}
+
+
+
+- 保留字段
+
+更新消息类型时，可能会将某些字段/标识符删除。这些被删掉的字段/标识符可能被重新使用，如果加载老版本的数据时，可能会造成数据冲突，在升级时，可以将这些字段/标识符保留(reserved)，这样就不会被重新使用了，protoc 会检查。
+
+message Foo {
+  //这里的序号表示的是字段的序号，也就是标识符
+  reserved 2, 15, 9 to 11;
+  //这里表示的就是字段的名称
+  reserved "foo", "bar";
+}
+
+
+
+
+
+

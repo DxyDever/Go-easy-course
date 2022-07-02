@@ -1,0 +1,46 @@
+2 变量以及内置数据
+
+Go 语言是静态类型的，变量声明时必须明确变量的类型。Go 语言与其他语言显著不同的一个地方在于，Go 语言的类型在变量后面。比如 java 中，声明一个整体一般写成 int a = 1，在 Go 语言中，需要这么写：
+
+var a int // 如果没有赋值，默认为0
+var a int = 1 // 声明时赋值
+var a = 1 // 声明时赋值
+
+var a = 1，因为 1 是 int 类型的，所以赋值时，a 自动被确定为 int 类型，所以类型名可以省略不写，这种方式还有一种更简单的表达：
+
+a := 1
+msg := "Hello World!"
+
+2.1 简单类型
+
+空值：nil
+
+整型类型： int(取决于操作系统), int8, int16, int32, int64, uint8, uint16, …
+
+浮点数类型：float32, float64
+
+字节类型：byte (等价于uint8)
+
+字符串类型：string
+
+布尔值类型：boolean，(true 或 false)
+
+var a int8 = 10
+//英文字母占一个字节
+var c1 byte = 'a'
+var b float32 = 12.2
+var msg = "Hello World"
+ok := false
+
+
+2.2 字符串
+
+在 Go 语言中，字符串使用 UTF8 编码，UTF8 的好处在于，如果基本是英文，每个字符占 1 byte，和 ASCII 编码是一样的，非常节省空间，如果是中文，一般占3字节。包含中文的字符串的处理方式与纯 ASCII 码构成的字符串有点区别。
+
+我们看下面的例子：
+
+见例子 2 string.go
+
+
+
+

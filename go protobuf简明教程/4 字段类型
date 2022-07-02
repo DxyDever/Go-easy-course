@@ -1,0 +1,116 @@
+4.1 标量类型
+
+proto类型   go类型	备注	                   proto类型	   go类型	 备注
+double	   float64		                   float	   float32
+int32	   int32		                   int64	   int64
+uint32	   uint32		                   uint64	   uint64
+sint32	   int32	适合负数	               sint64	   int64	 适合负数
+fixed32	   uint32	固长编码，适合大于2^28的值 fixed64	   uint64	 固长编码，适合大于2^56的值
+sfixed32   int32	固长编码	               sfixed64	   int64	 固长编码
+bool	   bool		                       string	   string	 UTF8 编码，长度不超过 2^32
+bytes	   []byte	任意字节序列，长度不超过 2^32
+
+
+标量类型如果没有被赋值，则不会被序列化，解析时，会赋予默认值。
+
+strings：空字符串
+bytes：空序列
+bools：false
+数值类型：0
+
+
+4.2 枚举
+
+枚举类型适用于提供一组预定义的值，选择其中一个。例如我们将性别定义为枚举类型。
+
+message Student {
+  string name = 1;
+  enum Gender {
+    FEMALE = 0;
+    MALE = 1;
+  }
+  Gender gender = 2;
+  repeated int32 scores = 3;
+}
+
+枚举类型的第一个选项的标识符必须是0，这也是枚举类型的默认值。
+别名（Alias），允许为不同的枚举值赋予相同的标识符，称之为别名，需要打开allow_alias选项。
+
+message EnumAllowAlias {
+  enum Status {
+    option allow_alias = true;
+    UNKOWN = 0;
+    STARTED = 1;
+    RUNNING = 1;
+  }
+}
+
+
+4.3 使用其他消息类型
+
+Result是另一个消息类型，在 SearchReponse 作为一个消息字段类型使用。
+
+
+message SearchResponse {
+  repeated Result results = 1;
+}
+
+message Result {
+  string url = 1;
+  string title = 2;
+  repeated string snippets = 3;
+}
+
+嵌套写也是支持的：
+
+message SearchResponse {
+  message Result {
+    string url = 1;
+    string title = 2;
+    repeated string snippets = 3;
+  }
+  repeated Result results = 1;
+}
+
+
+如果定义在其他文件中，可以导入其他消息类型来使用：
+
+import "myproject/other_protos.proto";
+
+
+
+4.4 任意类型
+
+Any 可以表示不在 .proto 中定义任意的内置类型。
+Any是什么意思呢？
+
+
+
+4.5 oneof
+
+如果希望消息体可以包含多个字段，（前提条件是最多同时只允许设置一个字段，）则可以使用oneof关键字来实现
+
+代码如下：
+
+message SampleMessage {
+  oneof test_oneof {
+    string name = 4;
+    SubMessage sub_message = 9;
+  }
+}
+
+
+4.6 map
+
+message MapRequest {
+  map<string, int32> points = 1;
+}
+
+
+
+
+
+
+
+
+

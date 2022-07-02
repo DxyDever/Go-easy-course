@@ -1,0 +1,24 @@
+2 安装
+
+从 Protobuf Releases 下载最先版本的发布包安装。如果是 Ubuntu，可以按照如下步骤操作（以3.11.2为例）
+
+# 下载安装包
+$ wget https://github.com/protocolbuffers/protobuf/releases/download/v3.11.2/protoc-3.11.2-linux-x86_64.zip
+# 解压到 /usr/local 目录下
+$ sudo 7z x protoc-3.11.2-linux-x86_64.zip -o/usr/local
+
+如果不想安装在 /usr/local 目录下，可以解压到其他的其他，并把解压路径下的 bin 目录 加入到环境变量即可。
+
+如果能正常显示版本，则表示安装成功。
+
+$ protoc --version
+libprotoc 3.11.2
+
+2.1 protoc-gen-go
+
+我们需要在 Golang 中使用 protobuf，还需要安装 protoc-gen-go，这个工具用来将 .proto 文件转换为 Golang 代码。
+
+
+go get -u github.com/golang/protobuf/protoc-gen-go
+
+protoc-gen-go 将自动安装到 $GOPATH/bin 目录下，也需要将这个目录加入到环境变量中。

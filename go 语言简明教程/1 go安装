@@ -1,0 +1,25 @@
+1 Go安装
+
+最新版本下载地址官方下载 golang.org，当前是 1.13.6。如无法访问，可以在 studygolang.com/dl 下载
+
+
+使用 Linux，可以用如下方式快速安装。
+
+$ wget https://studygolang.com/dl/golang/go1.13.6.linux-amd64.tar.gz
+$ tar -zxvf go1.13.6.linux-amd64.tar.gz
+$ sudo mv go /usr/local/
+
+$ go version
+go version go1.13.6 linux/amd64
+
+为什么不需要配置go语言环境变量就可以直接检查到version，因为/usr/local/配置到path里面
+
+从 Go 1.11 版本开始，Go 提供了 Go Modules 的机制，推荐设置以下环境变量，第三方包的下载将通过国内镜像，避免出现官方网址被屏蔽的问题。
+
+$ go env -w GOPROXY=https://goproxy.cn,direct
+
+或在 ~/.profile 中设置环境变量
+
+export GOPROXY=https://goproxy.cn
+
+对于强制开启了Go Modules机制，需要先初始化go mod init hello

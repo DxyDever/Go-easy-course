@@ -1,0 +1,44 @@
+1 条件语句if else
+
+...
+
+2 switch
+
+type Gender int8
+const (
+	MALE   Gender = 1
+	FEMALE Gender = 2
+)
+
+gender := MALE
+
+switch gender {
+case FEMALE:
+	fmt.Println("female")
+case MALE:
+	fmt.Println("male")
+default:
+	fmt.Println("unknown")
+}
+// male
+
+在这里，使用了type 关键字定义了一个新的类型 Gender。
+使用 const 定义了 MALE 和 FEMALE 2 个常量，Go 语言中没有枚举(enum)的概念，一般可以用常量的方式来模拟枚举。
+和其他语言不同的地方在于，Go 语言的 switch 不需要 break，匹配到某个 case，执行完该 case 定义的行为后，默认不会继续往下执行。如果需要继续往下执行，需要使用 fallthrough，例如：
+
+switch gender {
+case FEMALE:
+	fmt.Println("female")
+	fallthrough
+case MALE:
+	fmt.Println("male")
+	fallthrough
+default:
+	fmt.Println("unknown")
+}
+// 输出结果
+// male
+// unknown
+
+3 for
+
