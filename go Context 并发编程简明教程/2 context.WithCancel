@@ -1,0 +1,54 @@
+context.WithCancel() 创建可取消的 Context 对象，即可以主动通知子协程退出。
+
+2.1 控制单个协程
+使用 Context 改写上述的例子，效果与 select+chan 相同。
+
+
+func reqTask(ctx context.Context, name string) {
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("stop", name)
+			return
+		default:
+			fmt.Println(name, "send request")
+			time.Sleep(1 * time.Second)
+		}
+	}
+}
+
+func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	go reqTask(ctx, "worker1")
+	time.Sleep(3 * time.Second)
+	cancel()
+	time.Sleep(3 * time.Second)
+}
+context.Backgroud() 创建根 Context，通常在 main 函数、初始化和测试代码中创建，作为顶层 Context。
+context.WithCancel(parent) 创建可取消的子 Context，同时返回函数 cancel。
+在子协程中，使用 select 调用 <-ctx.Done() 判断是否需要退出。
+主协程中，调用 cancel() 函数通知子协程退出。
+
+2.2 控制多个协程
+
+func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go reqTask(ctx, "worker1")
+	go reqTask(ctx, "worker2")
+
+	time.Sleep(3 * time.Second)
+	cancel()
+	time.Sleep(3 * time.Second)
+}
+
+为每个子协程传递相同的上下文 ctx 即可，调用 cancel() 函数后该 Context 控制的所有子协程都会退出。
+
+worker1 send request
+worker2 send request
+worker1 send request
+worker2 send request
+worker1 send request
+worker2 send request
+stop worker1
+stop worker2

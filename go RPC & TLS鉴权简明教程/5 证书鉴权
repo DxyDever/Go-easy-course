@@ -1,0 +1,146 @@
+5.1 客户端对服务器端鉴权
+
+HTTP 协议默认是不加密的，我们可以使用证书来保证通信过程的安全。
+
+生成私钥和自签名的证书，并将 server.key 权限设置为只读，保证私钥的安全。
+
+# 生成私钥
+openssl genrsa -out server.key 2048
+# 生成证书
+openssl req -new -x509 -key server.key -out server.crt -days 3650
+# 只读权限
+chmod 400 server.key
+
+
+执行完，当前文件夹下多出了 server.crt 和 server.key 2 个文件。
+
+服务器端可以使用生成的 server.crt 和 server.key 文件启动 TLS 的端口监听。
+
+// server/main.go
+import (
+	"crypto/tls"
+	"log"
+	"net/rpc"
+)
+
+func main() {
+	rpc.Register(new(Cal))
+	cert, _ := tls.LoadX509KeyPair("server.crt", "server.key")
+	config := &tls.Config{
+		Certificates: []tls.Certificate{cert},
+	}
+	listener, _ := tls.Listen("tcp", ":1234", config)
+	log.Printf("Serving RPC server on port %d", 1234)
+
+
+    /*
+    - 阻塞等待客户端与服务器端建立连接，如果建立了连接，那么就将这个连接给该一个协程去异步的处理这个连接上发生的事情
+    - 可能会有多个客户端建立连接，所以需要无限循环，每次建立一个连接，就异步处理，然后等待下一个连接建立
+    */
+	for {
+		conn, _ := listener.Accept()
+		defer conn.Close()
+		go rpc.ServeConn(conn)
+	}
+}
+客户端也需要做相应的修改，使用 tls.Dial 代替 rpc.DialHTTP 连接服务端，如果客户端不需要对服务端鉴权，那么可以设置 InsecureSkipVerify:true，即可跳过对服务端的鉴权，例如：
+
+// client/main.go
+import (
+	"crypto/tls"
+	"log"
+	"net/rpc"
+)
+
+func main() {
+	config := &tls.Config{
+	    InsecureSkipVerify: true,
+	}
+	conn, _ := tls.Dial("tcp", "localhost:1234", config)
+	defer conn.Close()
+	client := rpc.NewClient(conn)
+
+	var result Result
+	if err := client.Call("Cal.Square", 12, &result); err != nil {
+		log.Fatal("Failed to call Cal.Square. ", err)
+	}
+
+	log.Printf("%d^2 = %d", result.Num, result.Ans)
+}
+
+也就判断是不是我们的可以访问的服务器
+如果需要对服务器端鉴权，那么需要将服务端的证书添加到信任证书池中，如下：
+
+
+// client/main.go
+
+func main() {
+	certPool := x509.NewCertPool()
+	certBytes, err := ioutil.ReadFile("../server/server.crt")
+	if err != nil {
+		log.Fatal("Failed to read server.crt")
+	}
+	certPool.AppendCertsFromPEM(certBytes)
+
+	config := &tls.Config{
+		RootCAs: certPool,
+	}
+
+	conn, _ := tls.Dial("tcp", "localhost:1234", config)
+	defer conn.Close()
+	client := rpc.NewClient(conn)
+
+	var result Result
+	if err := client.Call("Cal.Square", 12, &result); err != nil {
+		log.Fatal("Failed to call Cal.Square. ", err)
+	}
+
+	log.Printf("%d^2 = %d", result.Num, result.Ans)
+}
+
+
+客户端对服务器端鉴权也就是客户端来判断服务器是否符合客户端的访问规范
+
+
+5.2 服务器端对客户端进行鉴权
+
+服务器端对客户端的鉴权是类似的，核心在于 tls.Config 的配置：
+
+把对方的证书添加到自己的信任证书池 RootCAs(客户端配置)，ClientCAs(服务器端配置) 中。
+创建链接时，配置自己的证书 Certificates。
+客户端的 config 作如下修改：
+
+// client/main.go
+
+//多出的内容
+cert, _ := tls.LoadX509KeyPair("client.crt", "client.key")
+certPool := x509.NewCertPool()
+certBytes, _ := ioutil.ReadFile("../server/server.crt")
+certPool.AppendCertsFromPEM(certBytes)
+config := &tls.Config{
+//多出的内容
+	Certificates: []tls.Certificate{cert},
+	RootCAs: certPool,
+}
+
+服务器端的 config 作如下修改
+
+// server/main.go
+
+cert, _ := tls.LoadX509KeyPair("server.crt", "server.key")
+certPool := x509.NewCertPool()
+certBytes, _ := ioutil.ReadFile("../client/client.crt")
+certPool.AppendCertsFromPEM(certBytes)
+config := &tls.Config{
+	Certificates: []tls.Certificate{cert},
+	//验证客户端的证书
+	ClientAuth:   tls.RequireAndVerifyClientCert,
+	//证书池
+	ClientCAs:    certPool,
+}
+
+
+整个的流程就是服务端启动，客户端RPC远程调用服务器端的服务，首先会鉴权整个服务器是否是客户端可以访问的，然后返回来，服务端会鉴权整个客户端是否
+可以访问自己，也就是验证整个客户是不是自己的客户
+
+

@@ -1,0 +1,32 @@
+3 第一个Gin程序
+
+在一个空文件夹里新建文件main.go。
+
+
+
+// geektutu.com
+// main.go
+package main
+
+import "github.com/gin-gonic/gin"
+
+func main() {
+	r := gin.Default()
+	r.GET("/", func(c *gin.Context) {
+		c.String(200, "Hello, Geektutu")
+	})
+	r.Run() // listen and serve on 0.0.0.0:8080
+}
+首先，我们使用了gin.Default()生成了一个实例，这个实例即 WSGI 应用程序。
+接下来，我们使用r.Get("/", ...)声明了一个路由，告诉 Gin 什么样的URL 能触发传入的函数，这个函数返回我们想要显示在用户浏览器中的信息。
+最后用 r.Run()函数来让应用运行在本地服务器上，默认监听端口是 _8080_，可以传入参数设置端口，例如r.Run(":9999")即运行在 _9999_端口。
+运行
+
+
+$ go run main.go
+[GIN-debug] GET    /                         --> main.main.func1 (3 handlers)
+[GIN-debug] Environment variable PORT is undefined. Using port :8080 by default
+[GIN-debug] Listening and serving HTTP on :8080
+浏览器访问 http://localhost:8080
+
+

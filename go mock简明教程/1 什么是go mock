@@ -1,0 +1,13 @@
+
+上一篇文章 Go Test 单元测试简明教程 介绍了 Go 语言中单元测试的常用方法，包括子测试(subtests)、表格驱动测试(table-driven
+ tests)、帮助函数(helpers)、网络测试和基准测试(Benchmark)等。这篇文章介绍一种新的测试方法，mock/stub 测试，当待测试的函数
+ /对象的依赖关系很复杂，并且有些依赖不能直接创建，例如数据库连接、文件I/O等。这种场景就非常适合使用 mock/stub 测试。简单来说，
+ 就是用 mock 对象模拟依赖项的行为。
+
+gomock 是官方提供的 mock 框架，同时还提供了 mockgen 工具用来辅助生成测试代码。
+
+使用如下命令即可安装：
+
+
+go get -u github.com/golang/mock/gomock
+go get -u github.com/golang/mock/mockgen

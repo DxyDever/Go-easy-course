@@ -1,0 +1,26 @@
+如果需要控制子协程的执行时间，可以使用 context.WithTimeout 创建具有超时通知机制的 Context 对象。
+
+
+func main() {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	go reqTask(ctx, "worker1")
+	go reqTask(ctx, "worker2")
+
+	time.Sleep(3 * time.Second)
+	fmt.Println("before cancel")
+	cancel()
+	time.Sleep(3 * time.Second)
+}
+WithTimeout()的使用与 WithCancel() 类似，多了一个参数，用于设置超时时间。执行结果如下：
+
+
+worker2 send request
+worker1 send request
+worker1 send request
+worker2 send request
+stop worker2
+stop worker1
+before cancel
+因为超时时间设置为 2s，但是 main 函数中，3s 后才会调用 cancel()，因此，在调用 cancel() 函数前，子协程因为超时已经退出了。
+
+

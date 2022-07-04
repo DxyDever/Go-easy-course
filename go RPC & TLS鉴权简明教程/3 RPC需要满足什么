@@ -1,0 +1,38 @@
+
+3 RPC需要满足什么呢？
+
+虽然说，远程过程调用并不需要我们关心如何编解码，如何通信，但是最基本的，如果一个方法需要支持远程过程调用，需要满足一定的约束和规范。不同 RPC 框架的约束和规范是不同的，如果使用 Golang 的标准库 net/rpc，方法需要长这个样子：
+
+func (t *T) MethodName(argType T1, replyType *T2) error
+
+即需要满足以下 5 个条件：
+
+方法类型（T）是导出的（首字母大写）
+方法名（MethodName）是导出的
+方法有2个参数(argType T1, replyType *T2)，均为导出/内置类型
+方法的第2个参数一个指针(replyType *T2)
+方法的返回值类型是 error
+net/rpc 对参数个数的限制比较严格，仅能有2个，第一个参数是调用者提供的请求参数，第二个参数是返回给调用者的响应参数，也就是说，服务端需要将计算结果写在第二个参数中。如果调用过程中发生错误，会返回 error 给调用者。
+
+
+接下来，我们改造下 Square 函数，以满足上述 5 个条件。
+
+func (cal *Cal) Square(num int, result *Result) error {
+	result.Num = num
+	result.Ans = num * num
+	return nil
+}
+
+func main() {
+	cal := new(Cal)
+	var result Result
+	cal.Square(11, &result)
+	log.Printf("%d^2 = %d", result.Num, result.Ans)
+}
+
+Cal 和 Square 均为导出类型，满足条件 1) 和 2)
+2 个参数，num int 为内置类型，result *Result 为导出类型，满足条件 3)
+第2个参数 result *Result 是一个指针，满足条件 4)
+返回值类型是 error，满足条件 5)
+至此，方法 Cal.Square 满足了 RPC 调用的5个条件
+

@@ -1,0 +1,26 @@
+
+2 简单计算二次方的程序
+
+// main.go
+package main
+
+import "log"
+
+type Result struct {
+	Num, Ans int
+}
+
+type Cal int
+
+func (cal *Cal) Square(num int) *Result {
+	return &Result{
+		Num: num,
+		Ans: num * num,
+	}
+}
+
+func main() {
+	cal := new(Cal)
+	result := cal.Square(12)
+	log.Printf("%d^2 = %d", result.Num, result.Ans)
+}

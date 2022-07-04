@@ -1,0 +1,16 @@
+1 简介什么是内存映射
+
+https://geektutu.com/post/quick-go-mmap/mmap.jpg
+
+1 mmap 简介
+In computing, mmap is a POSIX-compliant Unix system call that maps files or devices into memory. It is a method of memory-mapped file I/O.
+– mmap - wikipedia.org
+
+简单理解，mmap 是一种将文件/设备映射到内存的方法，实现文件的磁盘地址和进程虚拟地址空间中的一段虚拟地址的一一映射关系。也就是说，可以在某个进程中通过操作这一段映射的内存，实现对文件的读写等操作。修改了这一段内存的内容，文件对应位置的内容也会同步修改，而读取这一段内存的内容，相当于读取文件对应位置的内容。
+
+mmap 另一个非常重要的特性是：减少内存的拷贝次数。在 linux 系统中，文件的读写操作通常通过 read 和 write 这两个系统调用来实现，这个过程会产生频繁的内存拷贝。比如 read 函数就涉及了 2 次内存拷贝：
+
+操作系统读取磁盘文件到页缓存；
+从页缓存将数据拷贝到 read 传递的 buf 中(例如进程中创建的byte数组)。
+mmap 只需要一次拷贝。即操作系统读取磁盘文件到页缓存，进程内部直接通过指针方式修改映射的内存。因此 mmap 特别适合读写频繁的场景，既减少了内存拷贝次数，提高效率，又简化了操作。KV数据库 bbolt 就使用了这个方法持久化数据。
+

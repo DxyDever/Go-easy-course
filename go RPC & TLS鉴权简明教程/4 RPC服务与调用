@@ -1,0 +1,117 @@
+4 RPC服务与调用
+
+4.1 基于HTTP，启动RPC服务
+
+RPC 是一个典型的客户端-服务器(Client-Server, CS) 架构模型，很显然，需要将 Cal.Square 方法放在服务端。服务端需要提供一个套接字服务，处理客户端发送的请求。通常可以基于 HTTP 协议，监听一个端口，等待 HTTP 请求。
+
+接下来我们新建一个文件夹 server，将 Cal.Square 方法移动到 server/main.go 中，并在 main 函数中启动 RPC 服务。
+
+package main
+
+import (
+	"log"
+	"net/http"
+	"net/rpc"
+)
+
+type Result struct {
+	Num, Ans int
+}
+
+type Cal int
+
+func (cal *Cal) Square(num int, result *Result) error {
+	result.Num = num
+	result.Ans = num * num
+	return nil
+}
+
+func main() {
+
+	rpc.Register(new(Cal))
+
+	rpc.HandleHTTP()
+
+	log.Printf("Serving RPC server on port %d", 1234)
+
+	if err := http.ListenAndServe(":1234", nil); err != nil {
+		log.Fatal("Error serving: ", err)
+
+	}
+}
+
+/*
+使用 rpc.Register，发布 Cal 中满足 RPC 注册条件的方法（Cal.Square）
+使用 rpc.HandleHTTP 注册用于处理 RPC 消息的 HTTP Handler
+使用 http.ListenAndServe 监听 1234 端口，等待 RPC 请求。
+
+ */
+
+
+4.2 实现客户端
+
+我们在 client 目录中新建文件 client/main.go，创建 HTTP 客户端，调用 Cal.Square 方法。
+
+package main
+
+import (
+	"log"
+	"net/rpc"
+)
+
+type Result struct {
+	Num, Ans int
+}
+
+func main() {
+
+	client, _ := rpc.DialHTTP("tcp", "localhost:1234")
+	var result Result
+
+	if err := client.Call("Cal.Square", 12, &result); err != nil {
+		log.Fatal("Failed to call Cal.Square. ", err)
+	}
+
+	log.Printf("%d^2 = %d", result.Num, result.Ans)
+}
+
+
+在客户端的实现中，因为要用到 Result 类型，简单起见，我们拷贝了 Result 的定义。
+
+使用 rpc.DialHTTP 创建了 HTTP 客户端 client，并且创建了与 localhost:1234 的链接，1234 恰好是 RPC 服务监听的端口。
+使用 rpc.Call 调用远程方法，第1个参数是方法名 Cal.Square，后两个参数与 Cal.Square 的定义的参数相对应。
+我们在 client 目录下，执行
+
+2020/01/13 21:17:45 12^2 = 144
+如果能够返回计算的结果，说明调用成功。
+
+
+
+4.3 异步调用
+
+client.Call 是同步调用的方式，会阻塞当前的程序，直到结果返回。如果有异步调用的需求，可以考虑使用client.Go，如下
+
+
+func main() {
+	client, _ := rpc.DialHTTP("tcp", "localhost:1234")
+	var result Result
+	asyncCall := client.Go("Cal.Square", 12, &result, nil)
+	log.Printf("%d^2 = %d", result.Num, result.Ans)
+
+	<-asyncCall.Done
+	log.Printf("%d^2 = %d", result.Num, result.Ans)
+
+}
+
+
+执行结果如下：
+
+2020/01/13 21:34:26 0^2 = 0
+2020/01/13 21:34:26 12^2 = 144
+因为 client.Go 是异步调用，因此第一次打印 result，result 没有被赋值。而通过调用 <-asyncCall.Done，阻塞当前程序直到 RPC 调用结束，因此第二次打印 result 时，能够看到正确的赋值。
+
+
+
+
+
+

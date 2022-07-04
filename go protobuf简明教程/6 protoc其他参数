@@ -1,0 +1,7 @@
+6 protoc
+
+命令行使用方法
+
+protoc --proto_path=IMPORT_PATH --<lang>_out=DST_DIR path/to/file.proto
+--proto_path=IMPORT_PATH：可以在 .proto 文件中 import 其他的 .proto 文件，proto_path 即用来指定其他 .proto 文件的查找目录。如果没有引入其他的 .proto 文件，该参数可以省略。
+--<lang>_out=DST_DIR：指定生成代码的目标文件夹，例如 –go_out=. 即生成 GO 代码在当前文件夹，另外支持 cpp/java/python/ruby/objc/csharp/php 等语言

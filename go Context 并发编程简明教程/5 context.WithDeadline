@@ -1,0 +1,39 @@
+超时退出可以控制子协程的最长执行时间，那 context.WithDeadline() 则可以控制子协程的最迟退出时间
+
+func reqTask(ctx context.Context, name string) {
+	for {
+		select {
+		case <-ctx.Done():
+			fmt.Println("stop", name, ctx.Err())
+			return
+		default:
+			fmt.Println(name, "send request")
+			time.Sleep(1 * time.Second)
+		}
+	}
+}
+
+func main() {
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(1*time.Second))
+	go reqTask(ctx, "worker1")
+	go reqTask(ctx, "worker2")
+
+	time.Sleep(3 * time.Second)
+	fmt.Println("before cancel")
+	cancel()
+	time.Sleep(3 * time.Second)
+}
+WithDeadline 用于设置截止时间。在这个例子中，将截止时间设置为1s后，cancel() 函数在 3s 后调用，因此子协程将在调用 cancel() 函数前结束。
+在子协程中，可以通过 ctx.Err() 获取到子协程退出的错误原因。
+运行结果如下：
+
+worker2 send request
+worker1 send request
+stop worker2 context deadline exceeded
+stop worker1 context deadline exceeded
+before cancel
+可以看到，子协程 worker1 和 worker2 均是因为截止时间到了而退出。
+
+
+这里有一点需要注意，当然可以提前退出啦，这里的只是最迟退出时间
+

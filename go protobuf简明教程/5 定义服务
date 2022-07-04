@@ -1,0 +1,11 @@
+5 定义服务
+
+如果消息类型是用来远程通信的(Remote Procedure Call, RPC)，可以在 .proto 文件中定义 RPC 服务接口。例如我们定义了一个名为 SearchService 的 RPC 服务，提供了 Search 接口，入参是 SearchRequest 类型，返回类型是 SearchResponse
+
+service SearchService {
+  rpc Search (SearchRequest) returns (SearchResponse);
+}
+
+ 官方仓库也提供了一个插件列表，帮助开发基于 Protocol Buffer 的 RPC 服务
+
+ 
