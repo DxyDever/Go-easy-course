@@ -1,0 +1,348 @@
+了解中间价，我们首先需要了解什么是Handler？
+简单来说，go web通过http.HandlerFunc来注册默认路由，将传入的url匹配到对应的Handler
+
+函数原型是 http.HandleFunc(pattern string, handler func(ResponseWriter, *Request))
+
+其中Handler是我们处理请求和生成返回信息逻辑处理函数
+
+中间件是什么呢？
+
+- 一个返回值为Handler的中间处理函数
+
+中间件有啥用呢？
+
+有时候在执行实际的handler里面的逻辑的时候想要预处理或者后处理一些行为，比如写入log或者执行时间，也就是我们在执行handler之前或者之后需要调用另外一个handler
+
+这个时候我们就需要用到中间件这个中间处理函数，把我们实际使用的handler放在中间件里吗，以实现额外的功能
+
+单中间件
+
+在执行handler的逻辑之前干点别的事情
+
+
+package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+)
+
+func logging(f http.HandlerFunc) http.HandlerFunc {
+	return func(writer http.ResponseWriter, request *http.Request) {
+		log.Println(request.URL.Path)
+		f(writer, request)
+	}
+}
+
+func foo(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, foo)
+}
+
+func bar(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "bar")
+}
+
+func main() {
+
+	http.HandleFunc("/foo", logging(foo))
+	http.HandleFunc("/bar", logging(bar))
+
+	http.ListenAndServe(":8080", nil)
+}
+
+
+可以看到logging是一个返回类型为HandlerFunc的中间件，
+
+ps.HandlerFunc的定义如下：
+
+type HandlerFunc func(ResponseWriter, *Request)
+
+
+是一个被定义成func(ResponseWriter, *Request)类型的自定义函数。
+
+logging这个中间件实现的功能：
+logging在返回的HandlerFunc类型函数里，首先把请求的URL路径写入log中，然后再调用传入的Handler（foo、bar）来处理真正的逻辑。从这里就可以看到中间件的奥义：在执行Handler的逻辑之前先干了点别的事情。
+也就是封装的思想
+
+
+多中间件
+
+接下来是多中间件，下面这个例子实现了在调用一个Handler之前或者之后调用另一个Handler，形成多中间件的连接
+
+package main
+
+import (
+	"fmt"
+	"log"
+	"net/http"
+	"time"
+)
+
+type Middleware func(handlerFunc http.HandlerFunc) http.HandlerFunc
+
+func Logging() Middleware {
+
+	//create a new middleware
+	return func(f http.HandlerFunc) http.HandlerFunc {
+		return func(writer http.ResponseWriter, request *http.Request) {
+
+			start := time.Now()
+
+			defer func() {
+				log.Println(request.URL.Path, time.Since(start))
+			}()
+
+			f(writer, request)
+		}
+	}
+}
+
+func Method(m string) Middleware {
+
+	return func(f http.HandlerFunc) http.HandlerFunc {
+		return func(writer http.ResponseWriter, request *http.Request) {
+
+			if request.Method != m {
+				http.Error(writer, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			}
+
+			f(writer, request)
+		}
+	}
+}
+
+func Chain(f http.HandlerFunc, middlewares ...Middleware) http.HandlerFunc {
+	for _, m := range middlewares {
+		f = m(f)
+	}
+	return f
+}
+
+func Hello(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, "hello world")
+}
+
+func main() {
+	http.HandleFunc("/", Chain(Hello, Method("GET"), Logging()))
+	http.ListenAndServe(":8080", nil)
+}
+
+首先，
+type Middleware func(http.HandlerFunc) http.HandlerFunc
+
+将Middleware定义为func(http.HandlerFunc) http.HandlerFunc的函数类型，
+而Logging和Method函数作为包装Middleware的函数，都把Middleware函数类型作为返回值，在返回的Middleware函数中再进一步地调用Handler逻辑。
+Chain函数则将一个个包装Middleware的函数再包装起来，像套娃一样一层层嵌套，实现多个中间件的链接。
+
+
+
+
+Go语言中的中间件的类型
+
+中间件只是对注册过的路由函数起作用，对于分组路由，嵌套使用中间件，可以限定中间件的作用范围
+
+中间件
+- 全局中间件
+- 单个路由中间件
+- 群组中间件
+
+中间件和我们普通的 HandlerFunc 没有任何区别。我们怎么写 HandlerFunc 就可以怎么写⼀个中间件。
+
+例子一
+package main
+
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"time"
+)
+
+func main() {
+	// 默认的路由会自动创建一个Logger（）跟Recovery()两个中间件的router
+	//r := gin.Default()
+
+	//创建一个不带默认中间件的router
+	r := gin.New()
+
+	//全局注册中间件
+	//r.Use(MiddlewareFunc1)
+
+	r.GET("/test1", MiddlewareFunc1, func(c *gin.Context) {
+		fmt.Fprintf(c.Writer, "调用中间件1")
+	})
+
+	r.GET("/test2", MiddlewareFunc2(true), func(c *gin.Context) {
+		fmt.Fprint(c.Writer, "调用中间件2")
+	})
+
+	r.Run(":8080")
+}
+
+// 下面2个中间件作用：
+// 统计处理的延时
+// 打印处理的状态
+
+func MiddlewareFunc1(c *gin.Context) {
+	t := time.Now()
+	fmt.Println("before middleware")
+
+	//设置request变量到context的key里面去，获取通过Get等函数取出
+	c.Set("request", "client_request")
+
+	//发送request之前
+
+	c.Next() //  去执行下一个处理函数
+
+	//发送request之后
+	//这个c.Write是RespnseWriter,，我们可以获取状态等信息
+	status := c.Writer.Status()
+	fmt.Println("after middleware,", status)
+
+	t2 := time.Since(t)
+
+	fmt.Println("time:", t2)
+}
+
+//中间件2，通过闭包的方式返回一个处理函数，但是可以传入外部变量
+func MiddlewareFunc2(debug bool) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if debug {
+
+		} else {
+
+		}
+
+		t := time.Now()
+		fmt.Println("before middleware")
+
+		//设置request变量到context的Key中，通过GET等函数可以取得
+		c.Set("request", "client_request")
+		//发送request之前
+		c.Next()
+		//发送request之后
+		status := c.Writer.Status()
+		fmt.Println("after middleware,", status)
+		t2 := time.Since(t)
+		fmt.Println("time:", t2)
+	}
+}
+
+
+例子二
+
+package main
+
+import (
+	"fmt"
+	"github.com/gin-gonic/gin"
+	"net/http"
+)
+
+func indexFunc(c *gin.Context) {
+	fmt.Println("index")
+	v, ok := c.Get("name")
+	if ok {
+		fmt.Println(v)
+	}
+	c.String(http.StatusOK, "index")
+}
+
+//中间件1
+func Middleware1() gin.HandlerFunc {
+
+	return func(c *gin.Context) {
+		fmt.Println("m1 before")
+		c.Set("name", "周杰伦")
+		c.Next()
+		fmt.Println("m1 after")
+	}
+}
+
+//中间件2
+func Middleware2() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fmt.Println("m1 before")
+		c.Set("name", "周杰伦")
+		c.Next()
+		fmt.Println("m1 after")
+	}
+}
+
+func main() {
+
+	r := gin.Default()
+
+	//全局注册
+	//r.Use(Middleware1(), Middleware2())
+
+	//路由组注册
+	//r.Group("/shop", Middleware1(), Middleware2())
+
+	//注册中间件
+	r.GET("/index", Middleware1(), Middleware2(), indexFunc)
+
+	r.Run()
+
+}
+
+中间件的三个方法
+c.Next()
+
+  	进入下一个处理函数
+
+c.Abort()
+
+  停止响应，后面不执行
+
+c.Set()
+
+c.Get()
+
+  设置键值对，后面的处理函数可以使用
+
+
+中间件实践，，，鉴权
+
+中间件最⼤的作⽤，莫过于⽤于⼀些记录log，错误handler，还有就是对部分接⼝的鉴权。下⾯就实现⼀个简易的鉴权中间件。
+
+鉴权
+
+中间件最⼤的作⽤，莫过于⽤于⼀些记录log，错误handler，还有就是对部分接⼝的鉴权。下⾯就实现⼀个简易的鉴权中间件。
+
+关于使⽤gin.BasicAuth() middleware，可以直接使⽤⼀个router group进⾏处理。
+
+package main
+
+import (
+	"github.com/gin-gonic/gin"
+	"net/http"
+)
+
+// 模拟私有数据
+var secrets = gin.H{
+	"ls":   gin.H{"email": "ls@lianshiclass.com", "phone": "123456"},
+	"yang": gin.H{"email": "yang@lianshiclass.com", "phone": "111111"},
+	"edu":  gin.H{"email": "edu@lianshiclass.com", "phone": "666666"},
+}
+
+func main() {
+	r := gin.New()
+	authorized := r.Group("/admin", gin.BasicAuth(gin.Accounts{
+		"ls":   "123",
+		"yang": "111",
+		"edu":  "666",
+		"lucy": "4321",
+	}))
+
+	authorized.GET("/secrets", func(c *gin.Context) {
+		// 获取提交的⽤户名（AuthUserKey）
+		user := c.MustGet(gin.AuthUserKey).(string)
+		if secret, ok := secrets[user]; ok {
+			c.JSON(http.StatusOK, gin.H{"user": user, "secret": secret})
+		} else {
+			c.JSON(http.StatusOK, gin.H{"user": user, "secret": "NO SECRET "})
+		}
+	})
+	r.Run(":8080")
+}
